@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  aegisflow-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: aegisflow-api-server
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - PORT=8000
+      - LOG_LEVEL=info
+      - ENV_NAME=production
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  aegisflow-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: aegisflow-operations-dashboard
+    depends_on:
+      aegisflow-api:
+        condition: service_started
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
