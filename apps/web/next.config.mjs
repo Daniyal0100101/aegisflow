@@ -4,9 +4,6 @@ const nextConfig = {
   eslint: {
     // Disable during production build to avoid compilation stalls during containerization
     ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
   }
 };
 
