@@ -10,7 +10,7 @@ const { outputText } = ts.transpileModule(source, {
 });
 const moduleUrl = `data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`;
 const originalApiUrl = process.env.NEXT_PUBLIC_API_URL;
-let api, configuredApi;
+let api, configuredApi, slashConfiguredApi;
 const apiUrl = "http://127.0.0.1:8000";
 const configuredApiUrl = "http://127.0.0.1:9000";
 try {
@@ -18,12 +18,14 @@ try {
   ({ api } = await import(`${moduleUrl}#default`));
   process.env.NEXT_PUBLIC_API_URL = configuredApiUrl;
   ({ api: configuredApi } = await import(`${moduleUrl}#configured`));
+  process.env.NEXT_PUBLIC_API_URL = `${configuredApiUrl}///`;
+  ({ api: slashConfiguredApi } = await import(`${moduleUrl}#slash-configured`));
 } finally {
   if (originalApiUrl === undefined) delete process.env.NEXT_PUBLIC_API_URL;
   else process.env.NEXT_PUBLIC_API_URL = originalApiUrl;
 }
 
-// Mock data uses the existing SessionSnapshot/SimulationState fields, not a new contract.
+/** Build a fixture using the existing SessionSnapshot/SimulationState contract. */
 function snapshot(domain = "disaster", directive = null) {
   return {
     session_id: "test-session",
@@ -51,6 +53,7 @@ function snapshot(domain = "disaster", directive = null) {
   };
 }
 
+/** Stub fetch for one test and restore it automatically when that test finishes. */
 function mockFetch(t, response) {
   const fetch = t.mock.method(globalThis, "fetch", async () => response);
   t.after(() => fetch.mock.restore());
@@ -74,6 +77,17 @@ test("the configured API origin is used without an invented /api prefix", async 
   const fetch = mockFetch(t, Response.json(snapshot()));
   await configuredApi.startSession("disaster");
   assert.equal(fetch.mock.calls[0].arguments[0], `${configuredApiUrl}/session/start`);
+});
+
+test("trailing slashes are removed for startSession and applyOverride URLs", async (t) => {
+  const fetch = t.mock.method(globalThis, "fetch", async () => Response.json(snapshot()));
+  t.after(() => fetch.mock.restore());
+  await slashConfiguredApi.startSession("disaster");
+  await slashConfiguredApi.applyOverride("test-session", "Hold");
+  assert.deepEqual(fetch.mock.calls.map((call) => call.arguments[0]), [
+    `${configuredApiUrl}/session/start`,
+    `${configuredApiUrl}/session/test-session/override`,
+  ]);
 });
 
 test("reachability reports network failures as offline", async (t) => {
