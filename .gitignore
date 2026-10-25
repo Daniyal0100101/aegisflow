@@ -12,6 +12,10 @@ downloads/
 eggs/
 .eggs/
 lib/
+# Track the web API client despite the Python library ignore above.
+!/apps/web/lib/
+/apps/web/lib/*
+!/apps/web/lib/api.ts
 lib64/
 parts/
 sdist/
